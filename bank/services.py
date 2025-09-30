@@ -60,3 +60,16 @@ class BankService:
             return account.balance
         except BankAccount.DoesNotExist:
             raise BankServiceException('Bank account not found')
+
+    @staticmethod
+    def get_transactions(user, date_from=None, date_to=None):
+        try:
+            account = BankAccount.objects.get(user=user)
+            transactions = account.transactions.all()
+            if date_from:
+                transactions = transactions.filter(created_at__gte=date_from)
+            if date_to:
+                transactions = transactions.filter(created_at__lte=date_to)
+            return transactions
+        except BankAccount.DoesNotExist:
+            raise BankServiceException('Bank account not found')

@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
+from bank.api.serializers import TransactionQuerySerializer, TransactionSerializer
 from bank.services import UserService, UserServiceException, BankService, BankServiceException
 
 
@@ -37,5 +38,19 @@ class BalanceView(APIView):
         try:
             balance = BankService.get_balance(request.user)
             return Response({'balance': balance}, status=status.HTTP_200_OK)
+        except BankServiceException as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TransactionListView(APIView):
+    def get(self, request):
+        try:
+            serializer = TransactionQuerySerializer(data=request.query_params)
+            serializer.is_valid(raise_exception=True)
+            date_from = serializer.validated_data.get('date_from')
+            date_to = serializer.validated_data.get('date_to')
+            transactions = BankService.get_transactions(request.user, date_from, date_to)
+            serialized_transactions = TransactionSerializer(transactions, many=True).data
+            return Response({'transactions': serialized_transactions}, status=status.HTTP_200_OK)
         except BankServiceException as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
