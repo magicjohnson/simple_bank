@@ -118,3 +118,64 @@ class BankServiceTests(TestCase):
         transaction = transactions.first()
         self.assertEqual(transaction.amount, Decimal("500.00"))
         self.assertEqual(transaction.transaction_type, "credit")
+
+    def test_get_fee_minimum_fee_applied(self):
+        fee = BankService.get_fee(Decimal('100.00'))
+        self.assertEqual(fee, Decimal('5.00'))
+
+    def test_get_fee_percentage_fee_applied(self):
+        fee = BankService.get_fee(Decimal('300.00'))
+        self.assertEqual(fee, Decimal('7.50'))
+
+    def test_get_fee_at_threshold(self):
+        fee = BankService.get_fee(Decimal('200.00'))  # 200 * 0.025 = 5.00
+        self.assertEqual(fee, Decimal('5.00'))
+
+    def test_get_fee_zero_amount(self):
+        fee = BankService.get_fee(Decimal('0.00'))
+        self.assertEqual(fee, Decimal('5.00'))
+
+    def test_when_transfer_amount_negative_should_raise_exception(self):
+        receiver = UserService.register("receiver@example.com", self.password)
+        receiver_account = BankAccount.objects.get(user=receiver)
+        with self.assertRaises(BankServiceException) as cm:
+            BankService.transfer(self.user, receiver_account.account_number, Decimal("-100.00"))
+        self.assertEqual(str(cm.exception), "Amount must be positive")
+
+    def test_when_receiver_account_not_found_should_raise_exception(self):
+        with self.assertRaises(BankServiceException) as cm:
+            BankService.transfer(self.user, "1234567890", Decimal("100.00"))
+        self.assertEqual(str(cm.exception), "Sender or receiver account not found")
+
+    def test_when_insufficient_funds_should_raise_exception(self):
+        receiver = UserService.register("receiver@example.com", self.password)
+        receiver_account = BankAccount.objects.get(user=receiver)
+        self.account.balance = Decimal("10.00")
+        self.account.save()
+        with self.assertRaises(BankServiceException) as cm:
+            BankService.transfer(self.user, receiver_account.account_number, Decimal("100.00"))
+        self.assertEqual(str(cm.exception), "Insufficient funds")
+
+    def test_when_valid_transfer_should_update_balances_and_record_transactions(self):
+        receiver = UserService.register("receiver@example.com", self.password)
+        receiver_account = BankAccount.objects.get(user=receiver)
+        initial_sender_balance = self.account.balance
+        initial_receiver_balance = receiver_account.balance
+        transfer_amount = Decimal("100.00")
+        fee = max(Decimal("5.00"), transfer_amount * Decimal("0.025"))
+
+        BankService.transfer(self.user, receiver_account.account_number, transfer_amount)
+
+        self.account.refresh_from_db()
+        receiver_account.refresh_from_db()
+        self.assertEqual(self.account.balance, initial_sender_balance - transfer_amount - fee)
+        self.assertEqual(receiver_account.balance, initial_receiver_balance + transfer_amount)
+
+        sender_transactions = self.account.transactions.all()
+        receiver_transactions = receiver_account.transactions.all()
+        self.assertEqual(sender_transactions.count(), 1)
+        self.assertEqual(receiver_transactions.count(), 1)
+        self.assertEqual(sender_transactions[0].amount, transfer_amount + fee)
+        self.assertEqual(sender_transactions[0].transaction_type, "debit")
+        self.assertEqual(receiver_transactions[0].amount, transfer_amount)
+        self.assertEqual(receiver_transactions[0].transaction_type, "credit")

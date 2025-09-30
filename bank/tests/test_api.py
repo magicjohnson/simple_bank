@@ -151,3 +151,79 @@ class TransactionListViewTests(APITestCase):
         response = self.client.get(self.transactions_url, {"date_from": "invalid_date"})
         self.assertEqual(response.status_code, 400)
         self.assertIn("date_from", response.data)
+
+
+class TransferViewTests(APITestCase):
+    def setUp(self):
+        self.sender_email = "sender@example.com"
+        self.receiver_email = "receiver@example.com"
+        self.password = "testpassword123"
+        self.transfer_url = "/api/transfer/"
+        self.sender = UserService.register(self.sender_email, self.password)
+        self.receiver = UserService.register(self.receiver_email, self.password)
+        self.sender_token = Token.objects.create(user=self.sender)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.sender_token.key}')
+        self.sender_account = BankAccount.objects.get(user=self.sender)
+        self.receiver_account = BankAccount.objects.get(user=self.receiver)
+
+    def test_when_unauthenticated_should_return_401(self):
+        self.client.credentials()  # Remove auth
+        response = self.client.post(self.transfer_url, {
+            "receiver_account_number": self.receiver_account.account_number,
+            "amount": "100.00"
+        })
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["detail"], "Authentication credentials were not provided.")
+
+    def test_when_invalid_account_number_should_return_400(self):
+        response = self.client.post(self.transfer_url, {
+            "receiver_account_number": "invalid",
+            "amount": "100.00"
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data, {'receiver_account_number': ['Invalid account number']} )
+
+    def test_when_nonexistent_account_should_return_400(self):
+        response = self.client.post(self.transfer_url, {
+            "receiver_account_number": "1234567890",
+            "amount": "100.00"
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["detail"], "Sender or receiver account not found")
+
+    def test_when_insufficient_funds_should_return_400(self):
+        self.sender_account.balance = Decimal("10.00")
+        self.sender_account.save()
+        response = self.client.post(self.transfer_url, {
+            "receiver_account_number": self.receiver_account.account_number,
+            "amount": "100.00"
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["detail"], "Insufficient funds")
+
+    def test_when_valid_transfer_should_update_balances_and_record_transactions(self):
+        initial_sender_balance = self.sender_account.balance
+        initial_receiver_balance = self.receiver_account.balance
+        transfer_amount = Decimal("100.00")
+        fee = max(Decimal("5.00"), transfer_amount * Decimal("0.025"))
+
+        response = self.client.post(self.transfer_url, {
+            "receiver_account_number": self.receiver_account.account_number,
+            "amount": str(transfer_amount)
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, {"message": "Transfer successful"})
+
+        self.sender_account.refresh_from_db()
+        self.receiver_account.refresh_from_db()
+        self.assertEqual(self.sender_account.balance, initial_sender_balance - transfer_amount - fee)
+        self.assertEqual(self.receiver_account.balance, initial_receiver_balance + transfer_amount)
+
+        sender_transactions = self.sender_account.transactions.all()
+        receiver_transactions = self.receiver_account.transactions.all()
+        self.assertEqual(sender_transactions.count(), 1)
+        self.assertEqual(receiver_transactions.count(), 1)
+        self.assertEqual(sender_transactions[0].amount, transfer_amount + fee)
+        self.assertEqual(sender_transactions[0].transaction_type, "debit")
+        self.assertEqual(receiver_transactions[0].amount, transfer_amount)
+        self.assertEqual(receiver_transactions[0].transaction_type, "credit")

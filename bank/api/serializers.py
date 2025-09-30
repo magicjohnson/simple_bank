@@ -20,3 +20,18 @@ class TransactionSerializer(serializers.ModelSerializer):
         model = Transaction
         fields = ['amount', 'transaction_type', 'created_at']
         read_only_fields = ['amount', 'transaction_type', 'created_at']
+
+
+class TransferSerializer(serializers.Serializer):
+    receiver_account_number = serializers.CharField(max_length=10)
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Amount must be positive")
+        return value
+
+    def validate_receiver_account_number(self, value):
+        if not value.isdigit() or len(value) != 10:
+            raise serializers.ValidationError("Invalid account number")
+        return value

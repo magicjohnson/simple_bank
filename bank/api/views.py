@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from bank.api.serializers import TransactionQuerySerializer, TransactionSerializer
+from bank.api.serializers import TransactionQuerySerializer, TransactionSerializer, TransferSerializer
 from bank.services import UserService, UserServiceException, BankService, BankServiceException
 
 
@@ -52,5 +52,20 @@ class TransactionListView(APIView):
             transactions = BankService.get_transactions(request.user, date_from, date_to)
             serialized_transactions = TransactionSerializer(transactions, many=True).data
             return Response({'transactions': serialized_transactions}, status=status.HTTP_200_OK)
+        except BankServiceException as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TransferView(APIView):
+    def post(self, request):
+        try:
+            serializer = TransferSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            BankService.transfer(
+                sender=request.user,
+                receiver_account_number=serializer.validated_data['receiver_account_number'],
+                amount=serializer.validated_data['amount']
+            )
+            return Response({'message': 'Transfer successful'}, status=status.HTTP_200_OK)
         except BankServiceException as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
