@@ -79,9 +79,15 @@ class BalanceViewTests(APITestCase):
         self.assertEqual(response.data["detail"], "Authentication credentials were not provided.")
 
     def test_when_authenticated_should_return_balance(self):
+        self.user.bank_account.account_number = '1234567890'
+        self.user.bank_account.save()
+
         response = self.client.get(self.balance_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data, {"balance": Decimal("10000.00")})
+        self.assertEqual(response.data, {
+            "balance": Decimal("10000.00"),
+            "account_number":  '1234567890'
+        })
 
 
 class TransactionListViewTests(APITestCase):

@@ -66,12 +66,12 @@ class BankServiceTests(TestCase):
     def test_when_no_account_should_raise_exception(self):
         self.account.delete()
         with self.assertRaises(BankServiceException) as cm:
-            BankService.get_balance(self.user)
+            BankService.get_account(self.user)
         self.assertEqual(str(cm.exception), "Bank account not found")
 
     def test_when_account_exists_should_return_balance(self):
-        balance = BankService.get_balance(self.user)
-        self.assertEqual(balance, Decimal("10000.00"))
+        account = BankService.get_account(self.user)
+        self.assertEqual(account.balance, Decimal("10000.00"))
 
     def test_when_no_transactions_should_return_empty_queryset(self):
         transactions = BankService.get_transactions(self.user)

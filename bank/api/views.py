@@ -33,11 +33,16 @@ class LoginView(APIView):
         except UserServiceException as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+
 class BalanceView(APIView):
     def get(self, request):
         try:
-            balance = BankService.get_balance(request.user)
-            return Response({'balance': balance}, status=status.HTTP_200_OK)
+            account = BankService.get_account(request.user)
+            data = {
+                'balance': account.balance,
+                "account_number": account.account_number
+            }
+            return Response(data, status=status.HTTP_200_OK)
         except BankServiceException as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

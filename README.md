@@ -35,7 +35,7 @@
   - Response: `{ "token": "<auth_token>" }`
 - **Get Balance**: `GET /api/balance/`
   - Headers: `Authorization: Token <auth_token>`
-  - Response: `{ "balance": 10000.00 }`
+  - Response: `{ "balance": 10000.00, "account_number": "1234567890"}`
 - **List Transactions**: `GET /api/transactions/`
   - Headers: `Authorization: Token <auth_token>`
   - Optional Query Params: `date_from=YYYY-MM-DDTHH:MM:SSZ`, `date_to=YYYY-MM-DDTHH:MM:SSZ`

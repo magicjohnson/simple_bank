@@ -57,10 +57,10 @@ class BankService:
                 return account_number
 
     @staticmethod
-    def get_balance(user):
+    def get_account(user):
         try:
             account = BankAccount.objects.get(user=user)
-            return account.balance
+            return account
         except BankAccount.DoesNotExist:
             raise BankServiceException('Bank account not found')
 
