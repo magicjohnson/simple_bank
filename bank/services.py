@@ -6,7 +6,7 @@ from django.db import transaction
 from rest_framework.authtoken.admin import User
 from rest_framework.authtoken.models import Token
 
-from bank.models import BankAccount
+from bank.models import BankAccount, Transaction
 
 
 class UserServiceException(Exception):
@@ -64,12 +64,11 @@ class BankService:
     @staticmethod
     def get_transactions(user, date_from=None, date_to=None):
         try:
-            account = BankAccount.objects.get(user=user)
-            transactions = account.transactions.all()
+            filters = {'account__user': user}
             if date_from:
-                transactions = transactions.filter(created_at__gte=date_from)
+                filters['created_at__gte'] = date_from
             if date_to:
-                transactions = transactions.filter(created_at__lte=date_to)
-            return transactions
+                filters['created_at__lte'] = date_to
+            return Transaction.objects.select_related('account').filter(**filters)
         except BankAccount.DoesNotExist:
             raise BankServiceException('Bank account not found')
