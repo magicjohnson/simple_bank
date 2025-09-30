@@ -4,6 +4,8 @@ from rest_framework.authtoken.models import Token
 from bank.models import BankAccount
 from decimal import Decimal
 
+from bank.services import UserService
+
 
 class RegisterViewTests(APITestCase):
     def setUp(self):
@@ -57,3 +59,24 @@ class LoginViewTests(APITestCase):
         self.assertIn("token", response.data)
         token = Token.objects.get(user__email=self.email)
         self.assertEqual(response.data["token"], token.key)
+
+
+class BalanceViewTests(APITestCase):
+    def setUp(self):
+        self.email = "test@example.com"
+        self.password = "testpassword123"
+        self.balance_url = "/api/balance/"
+        self.user = UserService.register(self.email, self.password)
+        self.token = Token.objects.create(user=self.user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token.key}')
+
+    def test_when_unauthenticated_should_return_401(self):
+        self.client.credentials()  # Remove auth
+        response = self.client.get(self.balance_url)
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["detail"], "Authentication credentials were not provided.")
+
+    def test_when_authenticated_should_return_balance(self):
+        response = self.client.get(self.balance_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, {"balance": Decimal("10000.00")})

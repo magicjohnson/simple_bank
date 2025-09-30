@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from bank.services import UserService, UserServiceException
+from bank.services import UserService, UserServiceException, BankService, BankServiceException
 
 
 class RegisterView(APIView):
@@ -30,4 +30,12 @@ class LoginView(APIView):
             token = UserService.login(email, password)
             return Response({'token': token.key}, status=status.HTTP_200_OK)
         except UserServiceException as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class BalanceView(APIView):
+    def get(self, request):
+        try:
+            balance = BankService.get_balance(request.user)
+            return Response({'balance': balance}, status=status.HTTP_200_OK)
+        except BankServiceException as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)

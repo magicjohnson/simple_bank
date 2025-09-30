@@ -52,3 +52,11 @@ class BankService:
             account_number = ''.join([str(random.randint(0, 9)) for _ in range(10)])
             if not BankAccount.objects.filter(account_number=account_number).exists():
                 return account_number
+
+    @staticmethod
+    def get_balance(user):
+        try:
+            account = BankAccount.objects.get(user=user)
+            return account.balance
+        except BankAccount.DoesNotExist:
+            raise BankServiceException('Bank account not found')

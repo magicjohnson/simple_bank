@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
 from bank.models import BankAccount
-from bank.services import UserService, UserServiceException, BankService
+from bank.services import UserService, UserServiceException, BankService, BankServiceException
 from decimal import Decimal
 
 
@@ -58,3 +58,13 @@ class BankServiceTests(TestCase):
         account_number = BankService.generate_account_number()
         self.assertEqual(len(account_number), 10)
         self.assertTrue(account_number.isdigit(), "Account number must be numeric")
+
+    def test_when_no_account_should_raise_exception(self):
+        self.account.delete()
+        with self.assertRaises(BankServiceException) as cm:
+            BankService.get_balance(self.user)
+        self.assertEqual(str(cm.exception), "Bank account not found")
+
+    def test_when_account_exists_should_return_balance(self):
+        balance = BankService.get_balance(self.user)
+        self.assertEqual(balance, Decimal("10000.00"))
