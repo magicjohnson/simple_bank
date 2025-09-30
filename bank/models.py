@@ -10,3 +10,17 @@ class BankAccount(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.account_number}"
+
+
+class Transaction(models.Model):
+    TRANSACTION_TYPES = (
+        ('credit', 'Credit'),
+        ('debit', 'Debit'),
+    )
+    account = models.ForeignKey(BankAccount, on_delete=models.PROTECT, related_name='transactions')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.account} - {self.transaction_type} - {self.amount}"
